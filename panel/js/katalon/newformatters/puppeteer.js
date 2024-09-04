@@ -111,10 +111,10 @@ const puppeteer = function (scriptName, isWithComment = false) {
     // https://docs.katalon.com/katalon-recorder/docs/selenese-selenium-ide-commands-reference.html
     const seleneseCommands = {
         open: (x) => `await page.goto(\`${locator(x.target)}\`, { waitUntil: 'networkidle0' });`,
-        doubleclick: (x) => `element = await page.$x(\`${locator(x.target)}\`);\n\tawait element[0].click({ clickCount: 2 });`,
-        click: (x) => `element = await page.$x(\`${locator(x.target)}\`);\n\tawait element[0].click();${waitForNavigationIfNeeded(x)}`,
+        doubleclick: (x) => `element = await page.waitForSelector(\`xpath/${locator(x.target)}\`);\n\tawait element.click({ clickCount: 2 });`,
+        click: (x) => `element = await page.waitForSelector(\`xpath/${locator(x.target)}\`);\n\tawait element.click();${waitForNavigationIfNeeded(x)}`,
         store: (x) => `await let ${locator(x.target)} = ${x.value};`,
-        type: (x) => `element = await page.$x(\`${locator(x.target)}\`);\n\tawait element[0].type(\`${x.value}\`);`,
+        type: (x) => `element = await page.waitForSelector(\`xpath/${locator(x.target)}\`);\n\tawait element.type(\`${x.value}\`);`,
         pause: (x) => `await page.waitFor(parseInt('${locator(x.target)}'));`,
         mouseover: (x) => `await page.hover(\`${locator(x.target)}\`);`,
         deleteallvisiblecookies: (x) => `await page.deleteCookie(await page.cookies());`,
@@ -125,7 +125,7 @@ const puppeteer = function (scriptName, isWithComment = false) {
         echo: (x) => `console.log(\`${locator(x.target)}\`, \`${x.value}\`);`,
         get: (x) => `await page.goto(\`${locator(x.target)}\`);${waitForNavigationIfNeeded(x)}`,
         comment: (x) => `// ${locator(x.target)}`,
-        submit: (x) => `formElement = await page.$x(\`${locator(x.target)}\`);\n\tawait page.evaluate(form => form.submit(), formElement[0]);\n\tawait page.waitForNavigation();`,
+        submit: (x) => `formElement = await page.waitForSelector(\`xpath/${locator(x.target)}\`);\n\tawait page.evaluate(form => form.submit(), formElement[0]);\n\tawait page.waitForNavigation();`,
         sendkeys: (x) => `await page.keyboard.press(\`${seleniumKeyVars(x.value)}\`)${waitForNavigationIfNeeded(x)}`,
         selectframe: (x) => `var frames = await page.frames();\n\tvar newFrame = await frames.find(f => f.name() === \`${x.target}\`);`,
         selectwindow: (x) => `tabs = await browser.pages();\n\tconsole.log(tabs);`,
@@ -150,24 +150,60 @@ const puppeteer = function (scriptName, isWithComment = false) {
         return "";
     }
 
-    const header =
-      "// Script Name: {_SCRIPT_NAME_}\n\n" +
-      "const puppeteer = require('puppeteer');\n\n" +
-      "(async () => {\n" +
-      "const browser = await puppeteer.launch({ headless: false, defaultViewport: { width: 1920, height: 1080 }, args: ['--start-maximized'] });\n" +
-      "const page = await browser.newPage();\n" +
-      "let element, formElement, tabs;\n\n"
+    // const header =
+    //   "// Script Name: {_SCRIPT_NAME_}\n\n" +
+    //   "const puppeteer = require('puppeteer');\n\n" +
+    //   "(async () => {\n" +
+    //   "const browser = await puppeteer.launch({ headless: false, defaultViewport: { width: 1920, height: 1080 }, args: ['--start-maximized'] });\n" +
+    //   "const page = await browser.newPage();\n" +
+    //   "let element, formElement, tabs;\n\n"
 
+      const header =
+      `
+import { describe, expect, test, it } from 'vitest'
+import { toMatchImageSnapshot } from 'jest-image-snapshot'
+import puppeteer from 'puppeteer';
+
+expect.extend({ toMatchImageSnapshot });
+
+describe('my tests', () => {
+    test('_SCRIPT_NAME_', async () => {
+        const browser = await puppeteer.launch({
+            executablePath: 'C:/\/\Program Files/\/\Google/\/\Chrome/\/\Application/\/\chrome.exe',
+            headless: false,
+            defaultViewport: {
+                width: 1920,
+                height: 1080,
+            }
+        });
+        const page = await browser.newPage();
+        await page.evaluateOnNewDocument(() => {
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => false
+            });
+        });
+        let element;
+      `
     const footer =
-      "await browser.close();\n" +
-      "})();"
+    `
+        const data = await page.screenshot({encoding:'base64'});
+        expect(data).toMatchImageSnapshot({
+            storeReceivedOnFailure:true,
+            customSnapshotIdentifier:'bseditor-_SCRIPT_NAME_-from-rec',
+            failureThreshold:0.001,
+            failureThresholdType:'percent'
+        });
+        await browser.close();
+    })
+});
+    `
 
 
     function formatter(commands) {
 
         return header.replace(/_SCRIPT_NAME_/g, _scriptName) +
           commandExports(commands).content +
-          footer +
+          footer.replace(/_SCRIPT_NAME_/g, _scriptName) +
           funcExports()
 
 
