@@ -171,6 +171,7 @@ describe('my tests', () => {
         const browser = await puppeteer.launch({
             executablePath: 'C:/\/\Program Files/\/\Google/\/\Chrome/\/\Application/\/\chrome.exe',
             headless: false,
+            slowMo: 50,
             defaultViewport: {
                 width: 1920,
                 height: 1080,
